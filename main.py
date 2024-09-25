@@ -2,18 +2,17 @@ from PIL import Image
 import os
 
 
-def generate_pattern(n, type = "default"):
+def generate_pattern(n, type_g="default"):
     pattern = []
-    if type == "snake":
+    if type_g == "snake":
         for i in range(n):
             for j in range(i + 1):
                 pattern.append((i - j, j))
 
-    elif type == "default":
+    elif type_g == "default":
         for i in range(n):
             for j in range(n):
                 pattern.append((i, j))
-
     return pattern
 
 
@@ -33,24 +32,25 @@ def steganography(path, save=False, show=False):
         print("ERROR: Fixing Dimensions!")
         size = min(width, height)
         img = img.resize((size, size))  # Update the image variable
+        # Save the fixed image
+        fn, fext = os.path.splitext(path)
+        img.save('{}_fixed{}'.format(fn, fext))
     else:
         size = width
 
     print("Dimensions are correct!")
 
-    # Save the fixed image
-    fn, fext = os.path.splitext(path)
-    img.save('{}_fixed.{}'.format(fn, fext))
-
     # Input for password
     password = input("What to hide: ")
-    binary_message = text_to_bin(password)
-
+    binary_message = text_to_bin(password) + '1111111111111110'
     index = 0
 
+    if len(binary_message) > size * size * 3:
+        print("ERROR: The message is too long to hide in this image.")
+        return
+    print(binary_message)
     # Retrieve pixel data
-    pixels = list(img.getdata())
-    for x, y in generate_pattern(size):
+    for x, y in generate_pattern(size, "snake"):
         if index >= len(binary_message):
             break
 
@@ -72,24 +72,29 @@ def steganography(path, save=False, show=False):
         img.show()
 
     if save:
-        img.save(path)
+        fn, fext = os.path.splitext(path)
+        try:
+            img.save('{}_hidden{}'.format(fn, fext))
+            print("Image saved successfully.")
+        except Exception as e:
+            print(f"Error saving image: {e}")
+
+    print(f"Successfully hidden {len(binary_message)} bits in the image.")
 
 
-def img_sub(path, save=False):
-    img = Image.open(path)
-    fn, fext = os.path.splitext(path)
-    # Load the fixed image for comparison
-    img2 = Image.open('{}_fixed.{}'.format(fn, fext))
+def img_sub(path1, path2, save=False):
+    img1 = Image.open(path1).convert('RGB')
+    img2 = Image.open(path2).convert('RGB')
 
-    # Convert images to RGB
-    img1 = img.convert('RGB')
-    img2 = img2.convert('RGB')
-    result = Image.new('RGB', img.size)
+    # Ensure both images are of the same size
+    if img1.size != img2.size:
+        print("Error: Images must be of the same dimensions.")
+        return
 
+    result = Image.new('RGB', img1.size)
 
-    # Subtract pixel values
-    for x in range(img.width):
-        for y in range(img.height):
+    for x in range(img1.width):
+        for y in range(img1.height):
             r1, g1, b1 = img1.getpixel((x, y))
             r2, g2, b2 = img2.getpixel((x, y))
 
@@ -110,8 +115,10 @@ def img_sub(path, save=False):
     result.show()
 
     if save:
-        result.save('{}_subtract.{}'.format(fn, fext))
+        fn1, fext1 = os.path.splitext(path1)
+        fn2, fext2 = os.path.splitext(path2)
+        result.save('{}_{}_subtract{}'.format(fn1, fn2, fext1))
 
 
-steganography("code3.jpg")
-img_sub("code3.jpg",)
+steganography("code4.jpg", save=True)
+img_sub("code4_hidden.jpg", "code4_fixed.jpg", save=True)
